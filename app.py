@@ -68,6 +68,13 @@ def generate_dataset():
     
     return pd.DataFrame(data)
 
+# Cache the gallery images list
+@st.cache_data
+def get_gallery_images():
+    if not os.path.exists("uploaded_images"):
+        return []
+    return [f for f in os.listdir("uploaded_images") if f.endswith(('.jpg', '.jpeg', '.png'))]
+
 # Load the dataset
 df = generate_dataset()
 
@@ -463,83 +470,113 @@ elif page == "Image Gallery":
     st.header("📸 Image Gallery")
     st.markdown("Upload and process event-related images")
     
-    # Create directory for uploaded images if it doesn't exist
-    if not os.path.exists("uploaded_images"):
-        os.makedirs("uploaded_images")
+    # Create tabs for upload and gallery
+    tab1, tab2 = st.tabs(["Upload New Photo", "View Gallery"])
     
-    # File uploader
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+    with tab1:
+        # Create directory for uploaded images if it doesn't exist
+        if not os.path.exists("uploaded_images"):
+            os.makedirs("uploaded_images")
+        
+        # File uploader
+        uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+        
+        if uploaded_file is not None:
+            # Read image using PIL
+            image = Image.open(uploaded_file)
+            
+            # Display original image
+            st.subheader("Original Image")
+            st.image(image, caption="Original Image", use_container_width=True)
+            
+            # Image processing options
+            st.subheader("Image Processing")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Brightness adjustment
+                brightness = st.slider("Brightness", 0.0, 2.0, 1.0, 0.1)
+                if brightness != 1.0:
+                    enhancer = ImageEnhance.Brightness(image)
+                    brightened_image = enhancer.enhance(brightness)
+                    st.image(brightened_image, caption=f"Brightness: {brightness}", use_container_width=True)
+                
+                # Contrast adjustment
+                contrast = st.slider("Contrast", 0.0, 2.0, 1.0, 0.1)
+                if contrast != 1.0:
+                    enhancer = ImageEnhance.Contrast(image)
+                    contrasted_image = enhancer.enhance(contrast)
+                    st.image(contrasted_image, caption=f"Contrast: {contrast}", use_container_width=True)
+            
+            with col2:
+                # Blur effect
+                blur = st.slider("Blur", 0, 10, 0)
+                if blur > 0:
+                    blurred_image = image.filter(ImageFilter.GaussianBlur(blur))
+                    st.image(blurred_image, caption=f"Blur: {blur}", use_container_width=True)
+                
+                # Sharpness adjustment
+                sharpness = st.slider("Sharpness", 0.0, 2.0, 1.0, 0.1)
+                if sharpness != 1.0:
+                    enhancer = ImageEnhance.Sharpness(image)
+                    sharpened_image = enhancer.enhance(sharpness)
+                    st.image(sharpened_image, caption=f"Sharpness: {sharpness}", use_container_width=True)
+            
+            # Save processed image
+            if st.button("Save Processed Image"):
+                # Create a copy of the image with all applied effects
+                processed_image = image.copy()
+                
+                # Apply brightness
+                if brightness != 1.0:
+                    enhancer = ImageEnhance.Brightness(processed_image)
+                    processed_image = enhancer.enhance(brightness)
+                
+                # Apply contrast
+                if contrast != 1.0:
+                    enhancer = ImageEnhance.Contrast(processed_image)
+                    processed_image = enhancer.enhance(contrast)
+                
+                # Apply blur
+                if blur > 0:
+                    processed_image = processed_image.filter(ImageFilter.GaussianBlur(blur))
+                
+                # Apply sharpness
+                if sharpness != 1.0:
+                    enhancer = ImageEnhance.Sharpness(processed_image)
+                    processed_image = enhancer.enhance(sharpness)
+                
+                # Save the processed image
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"uploaded_images/processed_{timestamp}.jpg"
+                processed_image.save(filename)
+                st.success(f"Processed image saved as {filename}")
     
-    if uploaded_file is not None:
-        # Read image using PIL
-        image = Image.open(uploaded_file)
+    with tab2:
+        st.subheader("Event Photo Gallery")
         
-        # Display original image
-        st.subheader("Original Image")
-        st.image(image, caption="Original Image", use_container_width=True)
+        # Get list of images using cached function
+        image_files = get_gallery_images()
         
-        # Image processing options
-        st.subheader("Image Processing")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Brightness adjustment
-            brightness = st.slider("Brightness", 0.0, 2.0, 1.0, 0.1)
-            if brightness != 1.0:
-                enhancer = ImageEnhance.Brightness(image)
-                brightened_image = enhancer.enhance(brightness)
-                st.image(brightened_image, caption=f"Brightness: {brightness}", use_container_width=True)
-            
-            # Contrast adjustment
-            contrast = st.slider("Contrast", 0.0, 2.0, 1.0, 0.1)
-            if contrast != 1.0:
-                enhancer = ImageEnhance.Contrast(image)
-                contrasted_image = enhancer.enhance(contrast)
-                st.image(contrasted_image, caption=f"Contrast: {contrast}", use_container_width=True)
-        
-        with col2:
-            # Blur effect
-            blur = st.slider("Blur", 0, 10, 0)
-            if blur > 0:
-                blurred_image = image.filter(ImageFilter.GaussianBlur(blur))
-                st.image(blurred_image, caption=f"Blur: {blur}", use_container_width=True)
-            
-            # Sharpness adjustment
-            sharpness = st.slider("Sharpness", 0.0, 2.0, 1.0, 0.1)
-            if sharpness != 1.0:
-                enhancer = ImageEnhance.Sharpness(image)
-                sharpened_image = enhancer.enhance(sharpness)
-                st.image(sharpened_image, caption=f"Sharpness: {sharpness}", use_container_width=True)
-        
-        # Save processed image
-        if st.button("Save Processed Image"):
-            # Create a copy of the image with all applied effects
-            processed_image = image.copy()
-            
-            # Apply brightness
-            if brightness != 1.0:
-                enhancer = ImageEnhance.Brightness(processed_image)
-                processed_image = enhancer.enhance(brightness)
-            
-            # Apply contrast
-            if contrast != 1.0:
-                enhancer = ImageEnhance.Contrast(processed_image)
-                processed_image = enhancer.enhance(contrast)
-            
-            # Apply blur
-            if blur > 0:
-                processed_image = processed_image.filter(ImageFilter.GaussianBlur(blur))
-            
-            # Apply sharpness
-            if sharpness != 1.0:
-                enhancer = ImageEnhance.Sharpness(processed_image)
-                processed_image = enhancer.enhance(sharpness)
-            
-            # Save the processed image
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"uploaded_images/processed_{timestamp}.jpg"
-            processed_image.save(filename)
-            st.success(f"Processed image saved as {filename}")
+        if not image_files:
+            st.info("No images uploaded yet. Please upload some event photos.")
+        else:
+            # Create a grid of images
+            cols = st.columns(3)
+            for idx, image_file in enumerate(image_files):
+                with cols[idx % 3]:
+                    # Display image
+                    image_path = os.path.join("uploaded_images", image_file)
+                    st.image(image_path, use_container_width=True)
+                    
+                    # Add download button
+                    with open(image_path, "rb") as file:
+                        st.download_button(
+                            label="Download",
+                            data=file,
+                            file_name=image_file,
+                            mime="image/png"
+                        )
 
 elif page == "Generated Data":
     st.header("📊 Generated Dataset")
