@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import geopandas as gpd
 import contextily as ctx
 import nltk
-import spacy
 from wordcloud import WordCloud, STOPWORDS
 from datetime import datetime, timedelta
 import random
@@ -22,13 +21,6 @@ sns.set_theme()
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('averaged_perceptron_tagger')
-
-# Load spaCy model
-try:
-    nlp = spacy.load('en_core_web_sm')
-except:
-    st.warning("Please install the spaCy model by running: python -m spacy download en_core_web_sm")
-    nlp = None
 
 # Set page config
 st.set_page_config(
