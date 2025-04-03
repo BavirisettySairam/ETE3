@@ -3,7 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import geopandas as gpd
 import contextily as ctx
-import cv2 as cv
 import nltk
 import spacy
 from wordcloud import WordCloud, STOPWORDS
@@ -37,19 +36,6 @@ st.set_page_config(
     page_icon="🎭",
     layout="wide"
 )
-
-# Title and Description
-st.title("🎭 INBLOOM '25")
-st.markdown("### Inter-College Cultural Events Dashboard")
-st.markdown("Insights into participation trends, feedback analysis, and event highlights")
-
-# Sidebar
-with st.sidebar:
-    st.title("Navigation")
-    page = st.radio(
-        "Select a section",
-        ["Overview", "Participation Analysis", "Feedback Analysis", "Image Gallery"]
-    )
 
 # Cache the dataset generation
 @st.cache_data
@@ -92,6 +78,56 @@ def generate_dataset():
 
 # Load the dataset
 df = generate_dataset()
+
+# Title and Description
+st.title("🎭 INBLOOM '25")
+st.markdown("### Inter-College Cultural Events Dashboard")
+st.markdown("Insights into participation trends, feedback analysis, and event highlights")
+
+# Sidebar with enhanced design
+with st.sidebar:
+    st.markdown("""
+    <div style='text-align: center; padding: 20px; background-color: #f0f2f6; border-radius: 10px; margin-bottom: 20px;'>
+        <h2 style='color: #1E3D59;'>🎭 INBLOOM '25</h2>
+        <p style='color: #666;'>Dashboard Navigation</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Navigation with icons
+    page = st.radio(
+        "Select a section",
+        ["Generated Data", "Overview", "Participation Analysis", "Feedback Analysis", "Image Gallery", "About"],
+        label_visibility="collapsed",
+        index=1  # Set Overview as default
+    )
+    
+    # Add some spacing
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Add quick stats in sidebar
+    st.markdown("""
+    <div style='background-color: #f0f2f6; padding: 15px; border-radius: 10px;'>
+        <h4 style='color: #1E3D59;'>Quick Stats</h4>
+        <p>👥 Participants: {}</p>
+        <p>🎭 Events: {}</p>
+        <p>🏫 Colleges: {}</p>
+        <p>⭐ Avg Rating: {}</p>
+    </div>
+    """.format(
+        len(df),
+        len(df['Event'].unique()),
+        len(df['College'].unique()),
+        round(df['Rating'].mean(), 1)
+    ), unsafe_allow_html=True)
+    
+    # Add footer in sidebar
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='text-align: center; color: #666; font-size: 12px;'>
+        <p>Built with ❤️</p>
+        <p>by Bavirisetty Sairam</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Initialize session state for filters if they don't exist
 if 'selected_event' not in st.session_state:
@@ -433,95 +469,149 @@ elif page == "Feedback Analysis":
 
 elif page == "Image Gallery":
     st.header("📸 Image Gallery")
+    st.markdown("Upload and process event-related images")
     
-    # Create a directory for uploaded images if it doesn't exist
+    # Create directory for uploaded images if it doesn't exist
     if not os.path.exists("uploaded_images"):
         os.makedirs("uploaded_images")
     
-    # Create tabs for upload and gallery
-    tab1, tab2 = st.tabs(["Upload New Photo", "View Gallery"])
+    # File uploader
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     
-    with tab1:
-        st.subheader("Upload New Event Photo")
-        uploaded_file = st.file_uploader("Choose an image file", type=['jpg', 'jpeg', 'png'])
+    if uploaded_file is not None:
+        # Read image using PIL
+        image = Image.open(uploaded_file)
         
-        if uploaded_file is not None:
-            # Read and display the uploaded image
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Preview", use_container_width=True)
+        # Display original image
+        st.subheader("Original Image")
+        st.image(image, caption="Original Image", use_container_width=True)
+        
+        # Image processing options
+        st.subheader("Image Processing")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Brightness adjustment
+            brightness = st.slider("Brightness", 0.0, 2.0, 1.0, 0.1)
+            if brightness != 1.0:
+                enhancer = ImageEnhance.Brightness(image)
+                brightened_image = enhancer.enhance(brightness)
+                st.image(brightened_image, caption=f"Brightness: {brightness}", use_container_width=True)
             
-            # Image processing options
-            st.subheader("Image Processing Options")
-            process_type = st.selectbox(
-                "Select Processing Type",
-                ["None", "Grayscale", "Blur", "Rotate", "Enhance"]
-            )
+            # Contrast adjustment
+            contrast = st.slider("Contrast", 0.0, 2.0, 1.0, 0.1)
+            if contrast != 1.0:
+                enhancer = ImageEnhance.Contrast(image)
+                contrasted_image = enhancer.enhance(contrast)
+                st.image(contrasted_image, caption=f"Contrast: {contrast}", use_container_width=True)
+        
+        with col2:
+            # Blur effect
+            blur = st.slider("Blur", 0, 10, 0)
+            if blur > 0:
+                blurred_image = image.filter(ImageFilter.GaussianBlur(blur))
+                st.image(blurred_image, caption=f"Blur: {blur}", use_container_width=True)
             
-            if process_type != "None":
-                processed = image.copy()
-                
-                if process_type == "Grayscale":
-                    processed = processed.convert('L')
-                elif process_type == "Blur":
-                    # Normalize blur amount to 0-100
-                    blur_percent = st.slider("Blur Amount", 0, 100, 0)
-                    if blur_percent > 0:
-                        # Convert percentage to radius (0-20)
-                        radius = int(blur_percent / 5)
-                        processed = processed.filter(ImageFilter.BLUR)
-                        if radius > 1:
-                            processed = processed.filter(ImageFilter.GaussianBlur(radius=radius))
-                elif process_type == "Rotate":
-                    angle = st.slider("Rotation Angle", -180, 180, 0)
-                    processed = processed.rotate(angle, expand=True)
-                elif process_type == "Enhance":
-                    # Create an ImageEnhance object
-                    enhancer = ImageEnhance.Contrast(processed)
-                    factor = st.slider("Enhancement Factor", 0.0, 2.0, 1.0, 0.1)
-                    processed = enhancer.enhance(factor)
-                
-                # Display processed image
-                st.image(processed, caption="Processed Image", use_container_width=True)
-                
-                # Save processed image
-                if st.button("Save Processed Image"):
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"uploaded_images/processed_{timestamp}_{uploaded_file.name}"
-                    processed.save(filename)
-                    st.success("Processed image saved successfully!")
+            # Sharpness adjustment
+            sharpness = st.slider("Sharpness", 0.0, 2.0, 1.0, 0.1)
+            if sharpness != 1.0:
+                enhancer = ImageEnhance.Sharpness(image)
+                sharpened_image = enhancer.enhance(sharpness)
+                st.image(sharpened_image, caption=f"Sharpness: {sharpness}", use_container_width=True)
+        
+        # Save processed image
+        if st.button("Save Processed Image"):
+            # Create a copy of the image with all applied effects
+            processed_image = image.copy()
             
-            # Save original image
-            if st.button("Save Original Image"):
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"uploaded_images/original_{timestamp}_{uploaded_file.name}"
-                image.save(filename)
-                st.success("Original image saved successfully!")
+            # Apply brightness
+            if brightness != 1.0:
+                enhancer = ImageEnhance.Brightness(processed_image)
+                processed_image = enhancer.enhance(brightness)
+            
+            # Apply contrast
+            if contrast != 1.0:
+                enhancer = ImageEnhance.Contrast(processed_image)
+                processed_image = enhancer.enhance(contrast)
+            
+            # Apply blur
+            if blur > 0:
+                processed_image = processed_image.filter(ImageFilter.GaussianBlur(blur))
+            
+            # Apply sharpness
+            if sharpness != 1.0:
+                enhancer = ImageEnhance.Sharpness(processed_image)
+                processed_image = enhancer.enhance(sharpness)
+            
+            # Save the processed image
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"uploaded_images/processed_{timestamp}.jpg"
+            processed_image.save(filename)
+            st.success(f"Processed image saved as {filename}")
+
+elif page == "Generated Data":
+    st.header("📊 Generated Dataset")
+    st.markdown("View and explore the complete dataset used in the dashboard")
     
-    with tab2:
-        st.subheader("Event Photo Gallery")
+    # Display the full dataset
+    st.subheader("Complete Dataset")
+    st.dataframe(df, use_container_width=True)
+    
+    # Dataset Information
+    st.subheader("Dataset Information")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Dataset Shape:**")
+        st.write(f"Rows: {df.shape[0]}")
+        st.write(f"Columns: {df.shape[1]}")
         
-        # Get list of images in the directory
-        image_files = [f for f in os.listdir("uploaded_images") if f.endswith(('.jpg', '.jpeg', '.png'))]
+        st.markdown("**Columns:**")
+        for col in df.columns:
+            st.write(f"- {col}")
+    
+    with col2:
+        st.markdown("**Data Types:**")
+        st.write(df.dtypes)
         
-        if not image_files:
-            st.info("No images uploaded yet. Please upload some event photos.")
-        else:
-            # Create a grid of images
-            cols = st.columns(3)
-            for idx, image_file in enumerate(image_files):
-                with cols[idx % 3]:
-                    # Display image
-                    image_path = os.path.join("uploaded_images", image_file)
-                    st.image(image_path, use_container_width=True)
-                    
-                    # Add download button
-                    with open(image_path, "rb") as file:
-                        st.download_button(
-                            label="Download",
-                            data=file,
-                            file_name=image_file,
-                            mime="image/png"
-                        )
+        st.markdown("**Missing Values:**")
+        st.write(df.isnull().sum())
+    
+    # Sample Statistics
+    st.subheader("Sample Statistics")
+    st.write(df.describe())
+
+elif page == "About":
+    st.header("ℹ️ About")
+    
+    st.markdown("""
+    ### INBLOOM '25 Dashboard
+    
+    This dashboard provides comprehensive insights into the INBLOOM '25 Inter-College Cultural Events, 
+    featuring participation analysis, feedback processing, and event highlights.
+    
+    #### Features
+    - 📊 Interactive Overview Dashboard
+    - 📈 Detailed Participation Analysis
+    - 💬 Feedback Analysis with Word Clouds
+    - 📸 Image Gallery with Processing Capabilities
+    - 📋 Complete Dataset View
+    
+    #### Technologies Used
+    - Streamlit for the web interface
+    - Pandas for data manipulation
+    - Matplotlib and Seaborn for visualizations
+    - NLTK and spaCy for text processing
+    - WordCloud for feedback visualization
+    - PIL for image processing
+    
+    #### Created By
+    **Bavirisetty Sairam**
+    
+    ---
+    
+    Built with ❤️ for INBLOOM '25
+    """)
 
 # Footer
 st.markdown("---")
